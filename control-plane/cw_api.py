@@ -133,16 +133,21 @@ PAGE = """<!doctype html><meta charset=utf-8><title>Cloneable Worlds — microVM
 <pre id=out>—</pre>
 <script>
 let last=null;
-async function load(){let r=await fetch('/api/machines');let d=await r.json();
+function cwkey(){let k=localStorage.getItem('cwkey');if(!k){k=prompt('Enter access key:')||'';if(k)localStorage.setItem('cwkey',k);}return k;}
+async function F(path,opts){opts=opts||{};opts.headers=Object.assign({'X-CW-Token':cwkey()},opts.headers||{});
+ let r=await fetch(path,opts);
+ if(r.status===403){localStorage.removeItem('cwkey');alert('access key rejected — reload the page to re-enter it.');}
+ return r;}
+async function load(){let r=await F('/api/machines');if(!r.ok)return;let d=await r.json();
  let b=d.map(m=>`<tr><td>${m.id}<td>${m.ip}<td><span class="pill ${m.status}">${m.status}</span>
  <td class=ms>${m.cold_boot_s?(+m.cold_boot_s).toFixed(3)+'s':'—'}<td class=ms>${m.clone_s?(+m.clone_s*1000).toFixed(1)+'ms':'—'}
  <td><button onclick="clone('${m.id}')">clone</button> <button class=k onclick="kill('${m.id}')">kill</button></tr>`).join('');
  document.querySelector('#t tbody').innerHTML=b; if(d.length)last=d[d.length-1].id;}
-async function spawn(){stat.textContent='spawning…';await fetch('/api/machines',{method:'POST'});stat.textContent='';load();}
-async function clone(id){stat.textContent='cloning…';await fetch('/api/machines/'+id+'/clone',{method:'POST'});stat.textContent='';load();}
-async function kill(id){await fetch('/api/machines/'+id,{method:'DELETE'});load();}
-async function ex(){out.textContent='…';let r=await fetch('/api/machines/'+last+'/exec',{method:'POST',body:JSON.stringify({cmd:cmd.value})});
- let d=await r.json();out.textContent=(d.out||'')+(d.err||'');}
+async function spawn(){stat.textContent='spawning…';await F('/api/machines',{method:'POST'});stat.textContent='';load();}
+async function clone(id){stat.textContent='cloning…';await F('/api/machines/'+id+'/clone',{method:'POST'});stat.textContent='';load();}
+async function kill(id){await F('/api/machines/'+id,{method:'DELETE'});load();}
+async function ex(){out.textContent='…';let r=await F('/api/machines/'+last+'/exec',{method:'POST',body:JSON.stringify({cmd:cmd.value})});
+ if(!r.ok){out.textContent='unauthorized';return}let d=await r.json();out.textContent=(d.out||'')+(d.err||'');}
 load();setInterval(load,3000);
 </script>"""
 
