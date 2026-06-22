@@ -1,0 +1,9 @@
+# never commit private keys or VM artifacts
+*.pem
+*_key
+guest_key
+*.ext4
+*.snap
+*.mem
+*.log
+run/
