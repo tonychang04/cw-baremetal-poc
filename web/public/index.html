@@ -26,8 +26,11 @@
 <pre id=out>—</pre>
 <script>
 let last=null;
-async function api(path,opts){let r=await fetch(path,opts);if(!r.ok){banner.style.display='block';
- banner.textContent='backend unreachable ('+r.status+') — the metal API is not yet exposed. See repo README.';}return r;}
+async function api(path,opts){let r;try{r=await fetch(path,opts);}catch(e){banner.style.display='block';
+ banner.textContent='backend unreachable (network) — '+e;return {ok:false,status:0};}
+ if(!r.ok){banner.style.display='block';
+ banner.textContent='backend unreachable ('+r.status+') — the metal API is not yet exposed. See repo README.';}
+ else{banner.style.display='none';}return r;}
 async function load(){let r=await api('/api/machines');if(!r.ok)return;let d=await r.json();
  let b=d.map(m=>`<tr><td>${m.id}<td>${m.ip}<td><span class="pill ${m.status}">${m.status}</span>
  <td class=ms>${m.cold_boot_s?(+m.cold_boot_s).toFixed(3)+'s':'—'}<td class=ms>${m.clone_s?(+m.clone_s*1000).toFixed(1)+'ms':'—'}

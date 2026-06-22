@@ -24,6 +24,7 @@ def spawn(from_clone=True):
     ip = f"172.16.{n}.2"
     rc, out, err = sh(f"bash {CW}/clone.sh {fid} {n}")
     rec = {"id": fid, "n": n, "ip": ip, "tap": f"tap{n}", "status": "running" if rc == 0 else "failed",
+           "pid": grab(r"FCPID=(\d+)", out),
            "clone_s": grab(r"CLONE_SECONDS=([\d.]+)", out),
            "cold_boot_s": grab(r"COLD_BOOT_SECONDS=([\d.]+)", out),
            "log": (out + err)[-600:]}
@@ -40,8 +41,16 @@ def gexec(ip, command):
 def kill(fid):
     rec = STATE.get(fid)
     if not rec: return False
-    sh(f"sudo pkill -f '{fid}.sock'; sudo ip link del {rec['tap']} 2>/dev/null; "
-       f"sudo zfs destroy -r cwpool/{fid} 2>/dev/null", timeout=30)
+    pid = rec.get("pid")
+    cmds = []
+    if pid:
+        cmds.append(f"sudo kill {pid} 2>/dev/null")          # exact firecracker pid, no pkill -f self-match
+    else:
+        cmds.append(f"sudo fuser -k {CW}/run/{fid}.sock 2>/dev/null || true")
+    cmds.append("sleep 1")                                    # let firecracker release the rootfs
+    cmds.append(f"sudo ip link del {rec['tap']} 2>/dev/null || true")
+    cmds.append(f"sudo zfs destroy -r cwpool/{fid} 2>/dev/null || true")
+    sh("; ".join(cmds), timeout=30)
     with LOCK:
         rec["status"] = "killed"
     return True
