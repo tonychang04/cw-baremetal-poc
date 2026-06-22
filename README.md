@@ -67,3 +67,18 @@ python3 control-plane/cw_api.py          # serves UI+API on :8080
 - **No multi-tenant isolation** (jailer/seccomp), **no auth/quotas**, **no L7 ingress** for guest ports.
 - Snapshot path stores network identity; clones get fresh identity via per-subnet tap/MAC (works,
   but ad-hoc — needs an IP/MAC allocator for scale).
+
+## Docs (knowledge share)
+
+- [`docs/01-bare-metal-config.md`](docs/01-bare-metal-config.md) — **how to configure a bare-metal host** for Firecracker microVMs, step by step with rationale (KVM access, VMM+images, networking, REST boot, ZFS CoW)
+- [`docs/02-architecture.md`](docs/02-architecture.md) — the L0–L9 layering; what we leveraged vs deferred; request path
+- [`docs/03-results.md`](docs/03-results.md) — measured benchmarks (boot / resume / clone) and how each was measured
+- [`docs/04-gotchas.md`](docs/04-gotchas.md) — every wall we hit + the fix (the time-saver doc)
+- [`docs/05-gaps-to-product.md`](docs/05-gaps-to-product.md) — what's missing to go from PoC to product (incl. JuiceFS cross-node)
+- [`PROVISION.md`](PROVISION.md) — the exact EC2 launch + host bootstrap commands
+
+## Web UI (Vercel)
+
+`web/` is the static UI + a serverless proxy to the metal control plane. Deployed at
+`https://web-ins-forge.vercel.app` (currently behind Vercel team auth). It goes live once the metal
+API is exposed and `METAL_URL`/`CW_TOKEN` env vars are set — see [`web/README.md`](web/README.md).

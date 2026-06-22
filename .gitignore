@@ -7,3 +7,7 @@ guest_key
 *.mem
 *.log
 run/
+
+# vercel
+web/.vercel/
+node_modules/

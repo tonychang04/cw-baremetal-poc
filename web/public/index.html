@@ -1,0 +1,42 @@
+<!doctype html><meta charset=utf-8><title>Cloneable Worlds — microVM PoC</title>
+<style>
+ body{font:14px/1.5 ui-monospace,Menlo,monospace;background:#0b0d12;color:#d7dbe3;margin:0;padding:28px;max-width:980px}
+ h1{font-size:18px;color:#fff;font-weight:600;letter-spacing:.3px}
+ .sub{color:#7d8694;margin:-8px 0 20px}
+ button{background:#1b2330;color:#cfe3ff;border:1px solid #2b3a4f;border-radius:7px;padding:7px 13px;cursor:pointer;font:inherit}
+ button:hover{background:#243044}
+ button.k{color:#ffb4b4;border-color:#4f2b2b}
+ table{border-collapse:collapse;width:100%;margin-top:18px}
+ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #1c2330;font-size:13px}
+ th{color:#7d8694;font-weight:500}
+ .pill{padding:2px 8px;border-radius:20px;font-size:12px}
+ .running{background:#13311f;color:#76e0a0}.killed{background:#332;color:#caa}.failed{background:#3a1c1c;color:#ff9b9b}
+ .ms{color:#8fd0ff} input{background:#10151e;border:1px solid #28313f;color:#d7dbe3;border-radius:6px;padding:6px;font:inherit;width:260px}
+ pre{background:#10151e;border:1px solid #1c2330;border-radius:8px;padding:12px;white-space:pre-wrap;max-height:220px;overflow:auto}
+ .warn{background:#2a1c10;border:1px solid #5a3a16;color:#ffcf9b;padding:8px 12px;border-radius:8px;margin-bottom:16px;font-size:13px}
+</style>
+<h1>Cloneable Worlds — Firecracker microVM PoC</h1>
+<div class=sub>a1.metal · aarch64 · ZFS copy-on-write forks · live on bare metal</div>
+<div class=warn id=banner style=display:none></div>
+<button onclick=spawn()>+ Spawn microVM (CoW fork)</button>
+<span id=stat style=color:#7d8694;margin-left:12px></span>
+<table id=t><thead><tr><th>id<th>guest ip<th>status<th>cold boot<th>clone (CoW)<th>actions</tr></thead><tbody></tbody></table>
+<h3 style=margin-top:26px;font-size:14px>exec in guest</h3>
+<input id=cmd value="hostname; uname -m; cat /proc/uptime"> <button onclick=ex()>run on last machine</button>
+<pre id=out>—</pre>
+<script>
+let last=null;
+async function api(path,opts){let r=await fetch(path,opts);if(!r.ok){banner.style.display='block';
+ banner.textContent='backend unreachable ('+r.status+') — the metal API is not yet exposed. See repo README.';}return r;}
+async function load(){let r=await api('/api/machines');if(!r.ok)return;let d=await r.json();
+ let b=d.map(m=>`<tr><td>${m.id}<td>${m.ip}<td><span class="pill ${m.status}">${m.status}</span>
+ <td class=ms>${m.cold_boot_s?(+m.cold_boot_s).toFixed(3)+'s':'—'}<td class=ms>${m.clone_s?(+m.clone_s*1000).toFixed(1)+'ms':'—'}
+ <td><button onclick="clone('${m.id}')">clone</button> <button class=k onclick="kill('${m.id}')">kill</button></tr>`).join('');
+ document.querySelector('#t tbody').innerHTML=b; if(d.length)last=d[d.length-1].id;}
+async function spawn(){stat.textContent='spawning…';await api('/api/machines',{method:'POST'});stat.textContent='';load();}
+async function clone(id){stat.textContent='cloning…';await api('/api/machines/'+id+'/clone',{method:'POST'});stat.textContent='';load();}
+async function kill(id){await api('/api/machines/'+id,{method:'DELETE'});load();}
+async function ex(){out.textContent='…';let r=await api('/api/machines/'+last+'/exec',{method:'POST',body:JSON.stringify({cmd:cmd.value})});
+ if(!r.ok){out.textContent='backend unreachable';return}let d=await r.json();out.textContent=(d.out||'')+(d.err||'');}
+load();setInterval(load,3000);
+</script>

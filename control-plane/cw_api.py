@@ -46,21 +46,37 @@ def kill(fid):
         rec["status"] = "killed"
     return True
 
+TOKEN = os.environ.get("CW_TOKEN", "")
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def _send(self, code, body, ctype="application/json"):
         b = body.encode() if isinstance(body, str) else body
         self.send_response(code); self.send_header("Content-Type", ctype)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-CW-Token")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+
+    def _auth(self):
+        # token required only for /api/* (the static page is open)
+        if TOKEN and self.path.startswith("/api") and self.headers.get("X-CW-Token") != TOKEN:
+            self._send(403, '{"error":"forbidden"}'); return False
+        return True
+
+    def do_OPTIONS(self):
+        self._send(204, "")
 
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/index"):
             return self._send(200, PAGE, "text/html")
+        if not self._auth(): return
         if self.path == "/api/machines":
             return self._send(200, json.dumps(list(STATE.values())))
         self._send(404, "{}")
 
     def do_POST(self):
+        if not self._auth(): return
         ln = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(ln) or "{}") if ln else {}
         if self.path == "/api/machines":
@@ -76,6 +92,7 @@ class H(BaseHTTPRequestHandler):
         self._send(404, "{}")
 
     def do_DELETE(self):
+        if not self._auth(): return
         m = re.match(r"/api/machines/([^/]+)", self.path)
         if m and kill(m.group(1)):
             return self._send(200, '{"ok":true}')
