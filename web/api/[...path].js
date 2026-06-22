@@ -3,8 +3,14 @@
 export default async function handler(req, res) {
   const base = process.env.METAL_URL;
   const token = process.env.CW_TOKEN || "";
+  const accessKey = process.env.ACCESS_KEY || "";
   if (!base) {
     res.status(503).json({ error: "METAL_URL not configured — backend not exposed yet" });
+    return;
+  }
+  // app-layer gate: every API call must carry the access key (entered once in the UI)
+  if (accessKey && req.headers["x-cw-access"] !== accessKey) {
+    res.status(401).json({ error: "unauthorized — access key required" });
     return;
   }
   // robustly reconstruct the sub-path after /api/, across Vercel runtimes

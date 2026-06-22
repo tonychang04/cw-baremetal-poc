@@ -26,10 +26,13 @@
 <pre id=out>—</pre>
 <script>
 let last=null;
-async function api(path,opts){let r;try{r=await fetch(path,opts);}catch(e){banner.style.display='block';
+function cwkey(){let k=localStorage.getItem('cwkey');if(!k){k=prompt('Enter access key:')||'';if(k)localStorage.setItem('cwkey',k);}return k;}
+async function api(path,opts){opts=opts||{};opts.headers=Object.assign({'x-cw-access':cwkey()},opts.headers||{});
+ let r;try{r=await fetch(path,opts);}catch(e){banner.style.display='block';
  banner.textContent='backend unreachable (network) — '+e;return {ok:false,status:0};}
- if(!r.ok){banner.style.display='block';
- banner.textContent='backend unreachable ('+r.status+') — the metal API is not yet exposed. See repo README.';}
+ if(r.status===401){localStorage.removeItem('cwkey');banner.style.display='block';
+ banner.textContent='access key rejected — reload the page to re-enter it.';}
+ else if(!r.ok){banner.style.display='block';banner.textContent='backend unreachable ('+r.status+').';}
  else{banner.style.display='none';}return r;}
 async function load(){let r=await api('/api/machines');if(!r.ok)return;let d=await r.json();
  let b=d.map(m=>`<tr><td>${m.id}<td>${m.ip}<td><span class="pill ${m.status}">${m.status}</span>
